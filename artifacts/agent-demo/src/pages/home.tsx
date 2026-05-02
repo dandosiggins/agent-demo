@@ -22,27 +22,28 @@ export default function Home() {
   const { dispatch } = useSimulation();
   const [customGoal, setCustomGoal] = useState("");
 
-  const handleSelectScenario = (scenario: Scenario) => {
-    dispatch({ type: "START", scenario });
+  const handleSelectScenario = (scenario: Scenario, goalOverride?: string) => {
+    dispatch({ type: "START", scenario, customGoal: goalOverride });
     setLocation("/demo");
   };
 
   const handleCustomGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customGoal.trim()) return;
     const lower = customGoal.toLowerCase();
-    let selected = SCENARIOS[0]; // default to first
+    let selected: Scenario;
 
-    if (lower.includes("trip") || lower.includes("travel")) {
+    if (lower.includes("trip") || lower.includes("travel") || lower.includes("tokyo")) {
       selected = SCENARIOS.find((s) => s.id === "tokyo-trip") || SCENARIOS[0];
-    } else if (lower.includes("energy") || lower.includes("science") || lower.includes("fusion")) {
+    } else if (lower.includes("energy") || lower.includes("science") || lower.includes("fusion") || lower.includes("nuclear")) {
       selected = SCENARIOS.find((s) => s.id === "fusion-research") || SCENARIOS[1];
-    } else if (lower.includes("debug") || lower.includes("api") || lower.includes("error")) {
+    } else if (lower.includes("debug") || lower.includes("api") || lower.includes("error") || lower.includes("500") || lower.includes("bug")) {
       selected = SCENARIOS.find((s) => s.id === "debug-api") || SCENARIOS[2];
     } else {
       selected = SCENARIOS.find((s) => s.id === "pitch-app") || SCENARIOS[3];
     }
 
-    handleSelectScenario(selected);
+    handleSelectScenario(selected, customGoal.trim());
   };
 
   return (

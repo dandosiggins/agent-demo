@@ -107,7 +107,7 @@ export default function Demo() {
             <Activity className="w-4 h-4 animate-pulse" />
             <span>Agent Running</span>
           </div>
-          <h1 className="font-medium hidden md:block">{state.scenario.goal}</h1>
+          <h1 className="font-medium hidden md:block">{state.customGoal ?? state.scenario.goal}</h1>
         </div>
         <div className="flex items-center gap-6">
           <div className="font-mono text-sm text-muted-foreground flex items-center gap-2">

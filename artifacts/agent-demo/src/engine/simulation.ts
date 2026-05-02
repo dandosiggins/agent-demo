@@ -4,6 +4,7 @@ export type SimulationStatus = "idle" | "running" | "paused" | "done";
 
 export interface SimulationState {
   scenario: Scenario | null;
+  customGoal: string | null;
   currentStepIndex: number;
   currentPhase: Phase | null;
   currentThought: string;
@@ -16,7 +17,7 @@ export interface SimulationState {
 }
 
 export type SimulationAction =
-  | { type: "START"; scenario: Scenario }
+  | { type: "START"; scenario: Scenario; customGoal?: string }
   | { type: "ADVANCE_STEP"; stepIndex: number }
   | { type: "STREAM_THOUGHT"; chars: number }
   | { type: "STREAM_TOOL_OUTPUT"; chars: number }
@@ -27,6 +28,7 @@ export type SimulationAction =
 
 export const initialSimulationState: SimulationState = {
   scenario: null,
+  customGoal: null,
   currentStepIndex: -1,
   currentPhase: null,
   currentThought: "",
@@ -47,13 +49,14 @@ export function simulationReducer(
       return {
         ...initialSimulationState,
         scenario: action.scenario,
+        customGoal: action.customGoal ?? null,
         status: "running",
         currentStepIndex: 0,
         currentPhase: action.scenario.steps[0]?.phase ?? null,
         currentThought: action.scenario.steps[0]?.thought ?? "",
         visibleThoughtChars: 0,
       };
-    case "ADVANCE_STEP":
+    case "ADVANCE_STEP": {
       const nextStep = state.scenario?.steps[action.stepIndex];
       if (!nextStep) return state;
       return {
@@ -65,6 +68,7 @@ export function simulationReducer(
         streamingToolOutput: nextStep.toolCall?.output ?? "",
         streamingToolOutputChars: 0,
       };
+    }
     case "STREAM_THOUGHT":
       return {
         ...state,

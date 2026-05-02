@@ -46,7 +46,7 @@ export default function Results() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground font-mono">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-md border border-border">
               <Target className="w-4 h-4" />
-              {state.scenario.label}
+              {state.customGoal ?? state.scenario.label}
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-md border border-border" data-testid="text-total-time">
               <Clock className="w-4 h-4" />
