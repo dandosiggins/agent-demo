@@ -60,13 +60,23 @@ export default function Demo() {
         const charsToAdd = Math.max(1, Math.floor((TOOL_OUTPUT_CHARS_PER_SEC * dt) / 1000));
         dispatch({ type: "STREAM_TOOL_OUTPUT", chars: state.streamingToolOutputChars + charsToAdd });
       } else {
-        // Step complete, wait then advance
+        // Step complete — mark done then either advance or finish
         clearInterval(intervalId);
         dispatch({ type: "COMPLETE_STEP", step: currentStep });
-        
-        setTimeout(() => {
-          dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 });
-        }, INTER_STEP_PAUSE_MS);
+
+        const isLastStep =
+          state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1;
+
+        if (isLastStep) {
+          setTimeout(() => {
+            dispatch({ type: "FINISH" });
+            setLocation("/results");
+          }, INTER_STEP_PAUSE_MS);
+        } else {
+          setTimeout(() => {
+            dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 });
+          }, INTER_STEP_PAUSE_MS);
+        }
       }
     };
 
