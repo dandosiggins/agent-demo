@@ -125,7 +125,7 @@ export default function Demo() {
             variant="outline"
             size="sm"
             onClick={() => {
-              dispatch({ type: "START", scenario: state.scenario! });
+              dispatch({ type: "START", scenario: state.scenario!, customGoal: state.customGoal ?? undefined });
             }}
             data-testid="button-restart"
           >

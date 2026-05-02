@@ -6,15 +6,50 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, RotateCcw, Clock, Target, Rocket } from "lucide-react";
 
-// Simple markdown renderer for the final answer
-function renderMarkdown(text: string) {
-  const html = text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/`(.*?)`/g, "<code class='bg-muted/50 px-1 py-0.5 rounded font-mono text-sm'>$1</code>")
-    .replace(/\n\n/g, "</p><p class='mb-4'>")
-    .replace(/\n/g, "<br/>");
-  
-  return `<p class='mb-4'>${html}</p>`;
+type TextSegment =
+  | { kind: "text"; value: string }
+  | { kind: "bold"; value: string }
+  | { kind: "code"; value: string };
+
+function parseInline(line: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  const re = /\*\*(.*?)\*\*|`(.*?)`/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line)) !== null) {
+    if (m.index > last) segments.push({ kind: "text", value: line.slice(last, m.index) });
+    if (m[1] !== undefined) segments.push({ kind: "bold", value: m[1] });
+    else segments.push({ kind: "code", value: m[2] });
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) segments.push({ kind: "text", value: line.slice(last) });
+  return segments;
+}
+
+function MarkdownText({ text }: { text: string }) {
+  const paragraphs = text.split(/\n\n+/);
+  return (
+    <>
+      {paragraphs.map((para, pi) => (
+        <p key={pi} className="mb-4">
+          {para.split(/\n/).map((line, li, arr) => (
+            <span key={li}>
+              {parseInline(line).map((seg, si) =>
+                seg.kind === "bold" ? (
+                  <strong key={si} className="text-foreground">{seg.value}</strong>
+                ) : seg.kind === "code" ? (
+                  <code key={si} className="bg-muted/50 px-1 py-0.5 rounded font-mono text-sm">{seg.value}</code>
+                ) : (
+                  <span key={si}>{seg.value}</span>
+                )
+              )}
+              {li < arr.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      ))}
+    </>
+  );
 }
 
 export default function Results() {
@@ -70,10 +105,9 @@ export default function Results() {
                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                   Final Output
                 </h2>
-                <div 
-                  className="prose prose-invert prose-p:leading-relaxed prose-strong:text-foreground max-w-none text-muted-foreground"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(state.scenario.finalAnswer) }}
-                />
+                <div className="prose prose-invert prose-p:leading-relaxed max-w-none text-muted-foreground">
+                  <MarkdownText text={state.scenario.finalAnswer} />
+                </div>
               </CardContent>
             </Card>
           </motion.div>
