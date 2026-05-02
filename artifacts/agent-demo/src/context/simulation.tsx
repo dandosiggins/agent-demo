@@ -1,5 +1,4 @@
 import { createContext, useContext, useReducer, ReactNode } from "react";
-import { Scenario } from "@/data/scenarios";
 import {
   SimulationState,
   SimulationAction,

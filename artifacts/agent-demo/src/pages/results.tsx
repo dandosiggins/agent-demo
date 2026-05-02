@@ -62,7 +62,10 @@ export default function Results() {
     }
   }, [state.scenario, state.status, setLocation]);
 
-  if (!state.scenario || state.status !== "done") return null;
+  const finalAnswer = state.isRealAgent ? state.realFinalAnswer : state.scenario?.finalAnswer ?? "";
+  const stepSummary = state.isRealAgent ? state.realStepSummary : state.scenario?.stepSummary ?? [];
+
+  if ((!state.scenario && !state.isRealAgent) || state.status !== "done") return null;
 
   return (
     <div className="min-h-screen bg-background text-foreground py-12 px-6">
@@ -81,7 +84,7 @@ export default function Results() {
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground font-mono">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-md border border-border">
               <Target className="w-4 h-4" />
-              {state.customGoal ?? state.scenario.label}
+              {state.customGoal ?? state.scenario?.label ?? "Agent Task"}
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-md border border-border" data-testid="text-total-time">
               <Clock className="w-4 h-4" />
@@ -106,7 +109,7 @@ export default function Results() {
                   Final Output
                 </h2>
                 <div className="prose prose-invert prose-p:leading-relaxed max-w-none text-muted-foreground">
-                  <MarkdownText text={state.scenario.finalAnswer} />
+                  <MarkdownText text={finalAnswer} />
                 </div>
               </CardContent>
             </Card>
@@ -123,7 +126,7 @@ export default function Results() {
               <CardContent className="p-6">
                 <h3 className="font-semibold mb-4 border-b border-border pb-4">What the agent did</h3>
                 <ul className="space-y-4">
-                  {state.scenario.stepSummary.map((summary, idx) => (
+                  {stepSummary.map((summary, idx) => (
                     <motion.li 
                       key={idx}
                       initial={{ opacity: 0, x: -10 }}

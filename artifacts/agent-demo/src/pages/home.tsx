@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { SCENARIOS, Scenario, PHASE_LABELS, Phase } from "@/data/scenarios";
 import { useSimulation } from "@/context/simulation";
-import { Search, Sparkles, Activity, CheckCircle, Eye, Lightbulb, ListTodo } from "lucide-react";
+import { Search, Sparkles, Activity, CheckCircle, Eye, Lightbulb, ListTodo, Zap, Bot } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,40 +21,54 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const { dispatch } = useSimulation();
   const [customGoal, setCustomGoal] = useState("");
+  const [realAI, setRealAI] = useState(false);
 
-  const handleSelectScenario = (scenario: Scenario, goalOverride?: string) => {
+  const runScriptedDemo = (scenario: Scenario, goalOverride?: string) => {
     dispatch({ type: "START", scenario, customGoal: goalOverride });
     setLocation("/demo");
+  };
+
+  const runRealAgent = (goal: string) => {
+    dispatch({ type: "REAL_START", goal });
+    setLocation("/demo");
+  };
+
+  const handleSelectScenario = (scenario: Scenario) => {
+    if (realAI) {
+      runRealAgent(scenario.goal);
+    } else {
+      runScriptedDemo(scenario);
+    }
   };
 
   const handleCustomGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customGoal.trim()) return;
+
+    if (realAI) {
+      runRealAgent(customGoal.trim());
+      return;
+    }
+
     const lower = customGoal.toLowerCase();
     let selected: Scenario;
-
     if (lower.includes("trip") || lower.includes("travel") || lower.includes("tokyo")) {
       selected = SCENARIOS.find((s) => s.id === "tokyo-trip") || SCENARIOS[0];
     } else if (lower.includes("energy") || lower.includes("science") || lower.includes("fusion") || lower.includes("nuclear")) {
       selected = SCENARIOS.find((s) => s.id === "fusion-research") || SCENARIOS[1];
-    } else if (lower.includes("debug") || lower.includes("api") || lower.includes("error") || lower.includes("500") || lower.includes("bug")) {
+    } else if (lower.includes("debug") || lower.includes("api") || lower.includes("error") || lower.includes("bug")) {
       selected = SCENARIOS.find((s) => s.id === "debug-api") || SCENARIOS[2];
     } else {
       selected = SCENARIOS.find((s) => s.id === "pitch-app") || SCENARIOS[3];
     }
-
-    handleSelectScenario(selected, customGoal.trim());
+    runScriptedDemo(selected, customGoal.trim());
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="w-full max-w-5xl px-6 pt-24 pb-16 flex flex-col items-center text-center space-y-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <Sparkles className="w-4 h-4" />
             <span>Interactive Demo</span>
@@ -67,6 +81,47 @@ export default function Home() {
           </p>
         </motion.div>
       </section>
+
+      {/* Mode toggle */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="flex items-center gap-1 p-1 bg-muted/40 border border-border rounded-lg mb-8"
+        data-testid="mode-toggle"
+      >
+        <button
+          onClick={() => setRealAI(false)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            !realAI ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="button-mode-scripted"
+        >
+          <Zap className="w-4 h-4" />
+          Scripted Demo
+        </button>
+        <button
+          onClick={() => setRealAI(true)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            realAI ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="button-mode-real-ai"
+        >
+          <Bot className="w-4 h-4" />
+          Real AI ✨
+        </button>
+      </motion.div>
+
+      {realAI && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm flex items-center gap-2"
+        >
+          <Bot className="w-4 h-4 shrink-0" />
+          Real AI mode — a live GPT-5 agent will reason through your goal using actual tool calls. Responses may take 15–30 seconds.
+        </motion.div>
+      )}
 
       {/* Scenarios Grid */}
       <section className="w-full max-w-5xl px-6 pb-16">
@@ -82,13 +137,17 @@ export default function Home() {
               onClick={() => handleSelectScenario(scenario)}
               data-testid={`card-scenario-${scenario.id}`}
             >
-              <Card className="h-full bg-card border-card-border hover:border-primary/50 transition-colors relative overflow-hidden">
+              <Card className={`h-full bg-card border-card-border hover:border-primary/50 transition-colors relative overflow-hidden ${realAI ? "hover:border-primary" : ""}`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/0 group-hover:from-primary/10 transition-colors duration-500" />
+                {realAI && (
+                  <div className="absolute top-3 right-3 flex items-center gap-1 text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                    <Bot className="w-3 h-3" />
+                    Real AI
+                  </div>
+                )}
                 <CardHeader>
                   <CardTitle className="text-lg">{scenario.label}</CardTitle>
-                  <CardDescription className="text-card-foreground/70">
-                    {scenario.goal}
-                  </CardDescription>
+                  <CardDescription className="text-card-foreground/70">{scenario.goal}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="text-sm text-muted-foreground bg-muted/30 px-3 py-2 rounded-md">
@@ -114,16 +173,17 @@ export default function Home() {
           <Input
             value={customGoal}
             onChange={(e) => setCustomGoal(e.target.value)}
-            placeholder="Or type your own goal... (e.g. 'Plan a trip' or 'Debug an API')"
-            className="w-full pl-12 pr-32 h-14 text-lg bg-card/50 border-border focus-visible:ring-primary/50 rounded-xl"
+            placeholder={realAI ? "Type any goal and the real AI will work on it…" : "Or type your own goal… (e.g. 'Plan a trip' or 'Debug an API')"}
+            className="w-full pl-12 pr-36 h-14 text-lg bg-card/50 border-border focus-visible:ring-primary/50 rounded-xl"
             data-testid="input-custom-goal"
           />
-          <Button 
-            type="submit" 
-            className="absolute right-2 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+          <Button
+            type="submit"
+            className={`absolute right-2 h-10 rounded-lg text-primary-foreground gap-1.5 ${realAI ? "bg-primary hover:bg-primary/90" : "bg-primary hover:bg-primary/90"}`}
             data-testid="button-submit-goal"
           >
-            Run Agent
+            {realAI ? <Bot className="w-4 h-4" /> : null}
+            {realAI ? "Run Real AI" : "Run Agent"}
           </Button>
         </motion.form>
       </section>
