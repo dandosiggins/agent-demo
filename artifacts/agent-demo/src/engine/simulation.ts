@@ -22,6 +22,8 @@ export type SimulationAction =
   | { type: "STREAM_THOUGHT"; chars: number }
   | { type: "STREAM_TOOL_OUTPUT"; chars: number }
   | { type: "COMPLETE_STEP"; step: AgentStep }
+  | { type: "PAUSE" }
+  | { type: "RESUME" }
   | { type: "FINISH" }
   | { type: "RESET" }
   | { type: "TICK"; ms: number };
@@ -95,6 +97,12 @@ export function simulationReducer(
         completedSteps: [...state.completedSteps, action.step],
       };
     }
+    case "PAUSE":
+      if (state.status !== "running") return state;
+      return { ...state, status: "paused" };
+    case "RESUME":
+      if (state.status !== "paused") return state;
+      return { ...state, status: "running" };
     case "FINISH":
       return { ...state, status: "done" };
     case "RESET":
@@ -106,9 +114,12 @@ export function simulationReducer(
   }
 }
 
-// Characters per second for thought streaming
+// Characters per second for thought streaming (baseline at 1× speed)
 export const THOUGHT_CHARS_PER_SEC = 80;
-// Characters per second for tool output streaming
+// Characters per second for tool output streaming (baseline at 1× speed)
 export const TOOL_OUTPUT_CHARS_PER_SEC = 120;
-// Pause between steps (ms)
+// Pause between steps in ms (baseline at 1× speed)
 export const INTER_STEP_PAUSE_MS = 400;
+
+export const SPEED_OPTIONS = [0.5, 1, 2, 4] as const;
+export type SpeedOption = (typeof SPEED_OPTIONS)[number];
