@@ -165,18 +165,15 @@ export default function Demo() {
           <h1 className="font-medium hidden md:block">{state.customGoal ?? state.scenario.goal}</h1>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Elapsed timer */}
-          <div className="font-mono text-sm text-muted-foreground flex items-center gap-2">
-            <span className="hidden sm:inline">Elapsed:</span>
-            <span className="text-foreground min-w-[3rem] tabular-nums" data-testid="text-timer">
-              {formatTime(state.elapsedMs)}
-            </span>
+          <div className="font-mono text-sm text-muted-foreground tabular-nums" data-testid="text-timer">
+            {formatTime(state.elapsedMs)}
           </div>
 
           {/* Speed controls */}
           <div
-            className="hidden sm:flex items-center gap-0.5 bg-muted/40 border border-border rounded-md p-0.5"
+            className="flex items-center gap-0.5 bg-muted/40 border border-border rounded-md p-0.5"
             data-testid="speed-controls"
           >
             {SPEED_OPTIONS.map((s) => (
@@ -184,7 +181,7 @@ export default function Demo() {
                 key={s}
                 onClick={() => setSpeed(s)}
                 data-testid={`button-speed-${s}`}
-                className={`px-2.5 py-1 rounded text-xs font-mono font-semibold transition-colors ${
+                className={`px-2 py-1 rounded text-xs font-mono font-semibold transition-colors ${
                   speed === s
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -202,10 +199,10 @@ export default function Demo() {
               size="sm"
               onClick={() => dispatch({ type: isPaused ? "RESUME" : "PAUSE" })}
               data-testid="button-pause-resume"
-              className="gap-1.5"
+              className="gap-1.5 px-3"
             >
               {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isPaused ? "Resume" : "Pause"}</span>
+              {isPaused ? "Resume" : "Pause"}
             </Button>
           )}
 
@@ -222,10 +219,9 @@ export default function Demo() {
               });
             }}
             data-testid="button-restart"
-            className="gap-1.5"
+            className="px-3"
           >
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden sm:inline">Restart</span>
           </Button>
         </div>
       </header>
