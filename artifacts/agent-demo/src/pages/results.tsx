@@ -11,10 +11,10 @@ function renderMarkdown(text: string) {
   const html = text
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`(.*?)`/g, "<code class='bg-muted/50 px-1 py-0.5 rounded font-mono text-sm'>$1</code>")
-    .replace(/\n\n/g, "</p><p className='mb-4'>")
+    .replace(/\n\n/g, "</p><p class='mb-4'>")
     .replace(/\n/g, "<br/>");
   
-  return `<p className='mb-4'>${html}</p>`;
+  return `<p class='mb-4'>${html}</p>`;
 }
 
 export default function Results() {

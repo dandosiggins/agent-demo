@@ -52,12 +52,17 @@ export default function Demo() {
       const thoughtLength = state.currentThought.length;
       
       if (state.visibleThoughtChars < thoughtLength) {
-        // Stream thought
-        const charsToAdd = Math.max(1, Math.floor((THOUGHT_CHARS_PER_SEC * dt) / 1000));
+        // Stream thought — use step durationMs to drive pacing if available
+        const thoughtDurationMs = currentStep.durationMs > 0 ? currentStep.durationMs : (thoughtLength / THOUGHT_CHARS_PER_SEC) * 1000;
+        const dynamicThoughtCps = thoughtLength / (thoughtDurationMs / 1000);
+        const charsToAdd = Math.max(1, Math.floor((dynamicThoughtCps * dt) / 1000));
         dispatch({ type: "STREAM_THOUGHT", chars: state.visibleThoughtChars + charsToAdd });
       } else if (currentStep.toolCall && state.streamingToolOutputChars < currentStep.toolCall.output.length) {
-        // Stream tool output
-        const charsToAdd = Math.max(1, Math.floor((TOOL_OUTPUT_CHARS_PER_SEC * dt) / 1000));
+        // Stream tool output — use tool durationMs to drive pacing if available
+        const toolOutput = currentStep.toolCall.output;
+        const toolDurationMs = currentStep.toolCall.durationMs > 0 ? currentStep.toolCall.durationMs : (toolOutput.length / TOOL_OUTPUT_CHARS_PER_SEC) * 1000;
+        const dynamicToolCps = toolOutput.length / (toolDurationMs / 1000);
+        const charsToAdd = Math.max(1, Math.floor((dynamicToolCps * dt) / 1000));
         dispatch({ type: "STREAM_TOOL_OUTPUT", chars: state.streamingToolOutputChars + charsToAdd });
       } else {
         // Step complete — mark done then either advance or finish
