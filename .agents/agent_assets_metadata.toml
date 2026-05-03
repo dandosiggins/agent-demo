@@ -6,3 +6,9 @@ id = "XWRu--LkKNEtu4DiItbCI"
 uri = "file://docs/agentic-ai-demo-breakdown.md"
 type = "text"
 title = "Agentic AI Demo — Full Breakdown"
+
+[[outputs]]
+id = "RVahomZ2x2tcnJsCGhBDm"
+uri = "file://docs/agentic-ai-demo-breakdown.tar.gz"
+type = "unspecified"
+title = "Agentic AI Demo — Breakdown (HTML + Markdown)"

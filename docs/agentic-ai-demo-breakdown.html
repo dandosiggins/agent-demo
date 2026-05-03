@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agentic AI Demo — Full Breakdown</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #1a1a2e;
+    background: #ffffff;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 40px 80px;
+  }
+
+  /* Cover */
+  .cover {
+    border-left: 5px solid #6366f1;
+    padding: 28px 32px;
+    background: #f5f3ff;
+    border-radius: 8px;
+    margin-bottom: 48px;
+  }
+  .cover h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: #1a1a2e;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .cover p {
+    color: #555;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 36px 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #4f46e5;
+    margin: 24px 0 8px;
+  }
+  p { margin-bottom: 12px; color: #374151; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 13.5px;
+  }
+  thead tr { background: #6366f1; color: #fff; }
+  thead th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+  }
+  tbody tr { border-bottom: 1px solid #e5e7eb; }
+  tbody tr:nth-child(even) { background: #f9fafb; }
+  tbody td { padding: 9px 14px; color: #374151; }
+
+  /* Code blocks */
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 20px 24px;
+    border-radius: 8px;
+    font-family: "Fira Code", "Cascadia Code", Menlo, monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    margin: 16px 0 24px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+  code {
+    background: #ede9fe;
+    color: #4c1d95;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "Fira Code", Menlo, monospace;
+    font-size: 12.5px;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+
+  /* Callout boxes */
+  .callout {
+    border-left: 4px solid #6366f1;
+    background: #f5f3ff;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0 24px;
+    font-size: 13.5px;
+    color: #3730a3;
+  }
+  .callout strong { color: #312e81; }
+
+  /* Scenario cards */
+  .scenario {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    background: #fafafa;
+  }
+  .scenario .label {
+    font-weight: 700;
+    font-size: 14.5px;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+  }
+  .scenario .goal {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+  .scenario .tools {
+    display: inline-block;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 6px;
+  }
+  .scenario p { font-size: 13px; color: #4b5563; margin-bottom: 0; }
+
+  /* Phase pills */
+  .phases { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 24px; }
+  .phase {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .phase.violet { background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6; }
+  .phase.blue   { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .phase.teal   { background: #f0fdfa; border-color: #99f6e4; color: #0f766e; }
+  .phase.emerald{ background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .phase .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .phase.violet .dot { background: #7c3aed; }
+  .phase.blue   .dot { background: #2563eb; }
+  .phase.teal   .dot { background: #0d9488; }
+  .phase.emerald .dot { background: #16a34a; }
+
+  /* SSE event table */
+  .event-tag {
+    display: inline-block;
+    background: #1e1e2e;
+    color: #cba6f7;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* Section divider */
+  .divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 40px 0;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  @media print {
+    body { padding: 20px 24px; font-size: 13px; }
+    .cover { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    table { break-inside: avoid; }
+    .scenario { break-inside: avoid; }
+    pre { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <h1>Agentic AI Demo — Full Breakdown</h1>
+  <p>A polished interactive web app that teaches audiences how agentic AI works by letting them watch it happen in real time, and compare it directly against plain generative AI. No login required. Works for any audience.</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>Three Modes</h2>
+
+<table>
+  <thead><tr><th>Mode</th><th>What it does</th><th>Speed</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Scripted Demo</strong></td>
+      <td>Pre-written scenarios with realistic step-by-step animations. Fully deterministic — same run every time. Great for live presentations.</td>
+      <td>Instant; adjustable 0.5×–4×</td>
+    </tr>
+    <tr>
+      <td><strong>Real Agent</strong></td>
+      <td>A live GPT-5.1 model actually reasons, plans, and calls tools. Output varies each run.</td>
+      <td>15–30 seconds</td>
+    </tr>
+    <tr>
+      <td><strong>Generative AI</strong></td>
+      <td>GPT-5.1 answers with a single prompt — no planning, no tools. Used for comparison.</td>
+      <td>3–8 seconds</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>How to Use It</h2>
+<ol style="padding-left:20px;color:#374151;line-height:2;">
+  <li><strong>Home page</strong> — choose a mode using the 3-way toggle (Scripted Demo / Real Agent / Generative AI)</li>
+  <li><strong>Pick a scenario</strong> from the four pre-built cards, or type any custom goal in the search bar</li>
+  <li><strong>Watch the Demo page</strong> — live thought stream on the left; Reasoning Log builds up on the right in real time</li>
+  <li><strong>Results page</strong> — full final output with a step-by-step summary. Generative mode includes a "Run with Real Agent →" one-click comparison</li>
+</ol>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>The 4 Built-In Scenarios</h2>
+
+<div class="scenario">
+  <div class="label">Plan a trip to Tokyo</div>
+  <div class="goal">Plan a 5-day itinerary for a first-time visit to Tokyo, Japan</div>
+  <span class="tools">web_search ×2 · calculator</span>
+  <p>Researches neighborhoods and logistics, looks up Suica vs JR Pass, calculates a 5-day budget (~¥115,000), then compiles a geographically clustered day-by-day itinerary.</p>
+</div>
+
+<div class="scenario">
+  <div class="label">Research fusion energy</div>
+  <div class="goal">Summarise the latest breakthroughs in nuclear fusion and assess commercial viability</div>
+  <span class="tools">web_search ×2 · memory</span>
+  <p>Identifies NIF's 2022 ignition milestone and China's EAST plasma record, researches private-sector timelines (Commonwealth Fusion, Helion), and produces a nuanced commercial assessment.</p>
+</div>
+
+<div class="scenario">
+  <div class="label">Debug a 500 API error</div>
+  <div class="goal">Diagnose why the /orders endpoint is returning HTTP 500 errors in production</div>
+  <span class="tools">file_read ×2 · code_interpreter</span>
+  <p>Reads production logs to find the exact TypeError, inspects source code to find the missing null guard, runs a SQL query confirming 23 orphaned records, then delivers an immediate code fix plus a preventative DB constraint.</p>
+</div>
+
+<div class="scenario">
+  <div class="label">Write a startup pitch</div>
+  <div class="goal">Write a compelling one-page pitch for an AI-powered meal planning app</div>
+  <span class="tools">web_search · calculator</span>
+  <p>Researches the $19.2B meal planning market, finds the key emotional hook (58% of US adults stressed about meal decisions), calculates a $56M ARR opportunity at 2% SAM penetration, then writes the complete pitch.</p>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>The 6 Agent Phases</h2>
+<p>Every run — scripted or real — follows the same ReAct cycle. Each phase is colour-coded on screen:</p>
+
+<div class="phases">
+  <div class="phase violet"><span class="dot"></span> Plan — break goal into sub-tasks</div>
+  <div class="phase violet"><span class="dot"></span> Think — reason about next step</div>
+  <div class="phase blue"><span class="dot"></span> Act — call a tool</div>
+  <div class="phase teal"><span class="dot"></span> Observe — process tool output</div>
+  <div class="phase violet"><span class="dot"></span> Reflect — evaluate progress</div>
+  <div class="phase emerald"><span class="dot"></span> Done — compose final answer</div>
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>The 5 Simulated Tools</h2>
+
+<table>
+  <thead><tr><th>Tool</th><th>What it represents</th></tr></thead>
+  <tbody>
+    <tr><td><code>web_search</code></td><td>Looking up current facts, data, news, research</td></tr>
+    <tr><td><code>calculator</code></td><td>Numerical computation, budget estimates, percentages</td></tr>
+    <tr><td><code>code_interpreter</code></td><td>Running Python code, SQL queries, data analysis</td></tr>
+    <tr><td><code>memory</code></td><td>Storing and retrieving information mid-run</td></tr>
+    <tr><td><code>file_read</code></td><td>Reading logs, source files, structured documents</td></tr>
+  </tbody>
+</table>
+
+<div class="callout">
+  <strong>In Real Agent mode</strong>, these are genuine OpenAI function calls — GPT-5.1 decides which tool to call and with what arguments. The tool "execution" is handled by asking GPT-5-mini to generate realistic-looking output (web results, code output, file contents, etc.).
+</div>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>Technology Stack</h2>
+
+<h3>Frontend</h3>
+<table>
+  <thead><tr><th>Technology</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>React + Vite + TypeScript</td><td>UI framework and build system</td></tr>
+    <tr><td>Wouter</td><td>Client-side routing (<code>/</code>, <code>/demo</code>, <code>/results</code>)</td></tr>
+    <tr><td>Framer Motion</td><td>All animations — phase transitions, card entrances, thought streaming</td></tr>
+    <tr><td>Tailwind CSS v4</td><td>Styling</td></tr>
+    <tr><td>shadcn/ui</td><td>UI component library (buttons, cards, inputs)</td></tr>
+    <tr><td>React Context + useReducer</td><td>All simulation state — no external library needed</td></tr>
+  </tbody>
+</table>
+
+<h3>Backend</h3>
+<table>
+  <thead><tr><th>Technology</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td>Express.js + TypeScript</td><td>API server</td></tr>
+    <tr><td>Server-Sent Events (SSE)</td><td>Real-time streaming from server to browser</td></tr>
+    <tr><td><code>POST /api/agent/run</code></td><td>Real Agent ReAct loop endpoint</td></tr>
+    <tr><td><code>POST /api/generate/run</code></td><td>Generative single-shot completion endpoint</td></tr>
+    <tr><td>Replit OpenAI Integration</td><td>Managed API proxy — no key management needed</td></tr>
+  </tbody>
+</table>
+
+<h3>AI Models</h3>
+<table>
+  <thead><tr><th>Model</th><th>Used for</th></tr></thead>
+  <tbody>
+    <tr><td><strong>gpt-5.1</strong></td><td>Main reasoning — Real Agent thinking + Generative completions</td></tr>
+    <tr><td><strong>gpt-5-mini</strong></td><td>Tool output simulation — faster and cheaper for generating realistic fake search results, code output, file contents</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>How the Real Agent Works (ReAct Loop)</h2>
+
+<pre>User submits a goal
+  ↓
+Loop (up to 6 iterations):
+  1. Signal phase: "plan" (first) / "think" / "reflect" (after tools)
+  2. Stream GPT-5.1 response live → thought text appears character by character
+  3. If the model decides to call a tool:
+       a. Signal phase "act"   → tool call card appears in UI
+       b. Ask GPT-5-mini to simulate realistic tool output
+       c. Signal phase "observe" → tool output streams in
+       d. Append tool result to the conversation history
+  4. If no tool call → this IS the final answer
+       Send "done" event → navigate to Results page</pre>
+
+<h3>SSE Events (what the browser receives)</h3>
+<table>
+  <thead><tr><th>Event</th><th>What it triggers in the UI</th></tr></thead>
+  <tbody>
+    <tr><td><span class="event-tag">phase</span></td><td>Updates active phase, colour theme, and header status pill</td></tr>
+    <tr><td><span class="event-tag">thought_chunk</span></td><td>Appends text to the live thought stream</td></tr>
+    <tr><td><span class="event-tag">tool_call</span></td><td>Shows tool name and input in a call card</td></tr>
+    <tr><td><span class="event-tag">tool_chunk</span></td><td>Streams tool output into the observe area</td></tr>
+    <tr><td><span class="event-tag">step_done</span></td><td>Commits the completed step to the Reasoning Log</td></tr>
+    <tr><td><span class="event-tag">done</span></td><td>Sets final answer and navigates to Results</td></tr>
+    <tr><td><span class="event-tag">error</span></td><td>Shows an error banner with a Go Back option</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>What You See on the Demo Page</h2>
+
+<h3>Left panel — Live Thought Stream</h3>
+<ul style="padding-left:20px;color:#374151;line-height:2.1;margin-bottom:16px;">
+  <li><strong>Phase indicator</strong> — current phase name and description, updates as each phase activates</li>
+  <li><strong>Thought box</strong> — the agent's internal reasoning, streaming live in real time
+    <ul style="padding-left:20px;list-style:circle;">
+      <li>Violet glow + Brain icon + "Internal Reasoning" header for Plan / Think / Reflect</li>
+      <li>Blue treatment for Act phases — tool call card appears below</li>
+      <li>Teal treatment for Observe phases — tool output streams in</li>
+    </ul>
+  </li>
+  <li><strong>Tool call card</strong> — shows which tool was called and the exact input sent</li>
+  <li><strong>Tool output</strong> — streams in below the tool card as it is "received"</li>
+</ul>
+
+<h3>Right sidebar</h3>
+<table>
+  <thead><tr><th>Mode</th><th>Sidebar title</th><th>Contents</th></tr></thead>
+  <tbody>
+    <tr><td>Scripted</td><td>Execution Trace</td><td>Vertical timeline of completed steps with phase icons</td></tr>
+    <tr><td>Real Agent</td><td>Reasoning Log</td><td>Colour-coded cards (violet/blue/teal) with actual thought text, auto-scrolling</td></tr>
+    <tr><td>Generative</td><td>What an Agent would do</td><td>Ghosted, dimmed steps showing what was intentionally skipped</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>State Management</h2>
+<p>A single <code>SimulationState</code> object (React <code>useReducer</code>) holds all state for the entire session. The reducer handles <strong>20 distinct action types</strong> split across three groups: Scripted, Real Agent, and Generative.</p>
+
+<table>
+  <thead><tr><th>State field</th><th>What it tracks</th></tr></thead>
+  <tbody>
+    <tr><td><code>status</code></td><td>idle / running / paused / done / error</td></tr>
+    <tr><td><code>isRealAgent</code> / <code>isGenerative</code></td><td>Which mode is active</td></tr>
+    <tr><td><code>currentPhase</code></td><td>Drives all colour theming and UI layout changes</td></tr>
+    <tr><td><code>currentThought</code> + <code>visibleThoughtChars</code></td><td>Typewriter animation for thought text</td></tr>
+    <tr><td><code>completedSteps[]</code></td><td>Steps shown in the Reasoning Log / Execution Trace</td></tr>
+    <tr><td><code>liveToolCall</code> + <code>streamingToolOutput</code></td><td>The currently executing tool call</td></tr>
+    <tr><td><code>realFinalAnswer</code> / <code>generativeFinalAnswer</code></td><td>Final output for each mode</td></tr>
+    <tr><td><code>elapsedMs</code></td><td>Live elapsed timer shown in the header</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>Scripted Demo Engine</h2>
+<p>Runs a client-side animation loop at 50ms intervals. On each tick:</p>
+<ol style="padding-left:20px;color:#374151;line-height:2.2;">
+  <li>Advances the typewriter effect (streaming thought text at ~80 characters/second)</li>
+  <li>Once the thought is fully visible, streams tool output (~120 characters/second)</li>
+  <li>Once tool output is complete, fires <code>COMPLETE_STEP</code> and moves to the next step after a brief pause</li>
+  <li>The speed multiplier (0.5×, 1×, 2×, 4×) scales the tick delta — Pause and Resume are also supported</li>
+</ol>
+
+<!-- ───────────────────────────────────────────── -->
+<h2>Results Page</h2>
+<ul style="padding-left:20px;color:#374151;line-height:2.1;">
+  <li>A <strong>"Mission Accomplished"</strong> or <strong>"Response Generated"</strong> banner with elapsed time</li>
+  <li>The <strong>full final answer</strong> — supports bold, inline code, and paragraph formatting</li>
+  <li>A <strong>"What the agent did"</strong> sidebar with each completed step as a bullet point</li>
+  <li>For Generative mode: a <strong>comparison callout</strong> (1 LLM call, 0 tools, 0 steps vs what an agent would do) plus a <strong>"Run the same goal with Real Agent →"</strong> button</li>
+</ul>
+
+<div class="divider"></div>
+
+<footer>Built with React · Vite · Framer Motion · Express · OpenAI — running on Replit</footer>
+
+</body>
+</html>
