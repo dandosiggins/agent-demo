@@ -25,6 +25,8 @@ import {
   Play,
   Bot,
   AlertCircle,
+  MessageSquare,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -37,7 +39,6 @@ const toolConfig: Record<ToolType, { icon: React.ElementType; color: string; bg:
 };
 
 const VALID_TOOLS = new Set<ToolType>(["web_search", "memory", "code_interpreter", "calculator", "file_read"]);
-
 function toToolType(raw: string): ToolType {
   return VALID_TOOLS.has(raw as ToolType) ? (raw as ToolType) : "web_search";
 }
@@ -49,16 +50,77 @@ export default function Demo() {
   const speedRef = useRef<SpeedOption>(1);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    speedRef.current = speed;
-  }, [speed]);
+  useEffect(() => { speedRef.current = speed; }, [speed]);
 
   // Redirect if no active simulation
   useEffect(() => {
-    if (!state.scenario || state.status === "idle") {
-      setLocation("/");
-    }
+    if (!state.scenario || state.status === "idle") setLocation("/");
   }, [state.scenario, state.status, setLocation]);
+
+  // ─── Generative SSE loop ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!state.isGenerative || state.status !== "running" || !state.customGoal) return;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let buffer = "";
+
+    (async () => {
+      try {
+        const response = await fetch("/api/generate/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ goal: state.customGoal }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          dispatch({ type: "GENERATIVE_ERROR", message: `Server error ${response.status}` });
+          return;
+        }
+
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            let event: Record<string, unknown>;
+            try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+            switch (event.type) {
+              case "start":
+                break;
+              case "chunk":
+                dispatch({ type: "APPEND_THOUGHT", chunk: event.content as string });
+                dispatch({ type: "TICK", ms: 50 });
+                break;
+              case "done":
+                dispatch({ type: "GENERATIVE_DONE", answer: event.answer as string });
+                setLocation("/results");
+                break;
+              case "error":
+                dispatch({ type: "GENERATIVE_ERROR", message: event.message as string });
+                break;
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          dispatch({ type: "GENERATIVE_ERROR", message: String(err) });
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [state.isGenerative, state.customGoal]); // intentionally only runs once on mount
 
   // ─── Real agent SSE loop ─────────────────────────────────────────────────
   useEffect(() => {
@@ -96,57 +158,31 @@ export default function Demo() {
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             let event: Record<string, unknown>;
-            try {
-              event = JSON.parse(line.slice(6));
-            } catch {
-              continue;
-            }
+            try { event = JSON.parse(line.slice(6)); } catch { continue; }
 
             switch (event.type) {
               case "phase":
-                dispatch({
-                  type: "REAL_PHASE",
-                  phase: event.phase as any,
-                  stepIndex: event.stepIndex as number,
-                });
+                dispatch({ type: "REAL_PHASE", phase: event.phase as any, stepIndex: event.stepIndex as number });
                 break;
-
               case "thought_chunk":
                 dispatch({ type: "APPEND_THOUGHT", chunk: event.content as string });
                 dispatch({ type: "TICK", ms: 50 });
                 break;
-
-              case "thought_done":
-                break;
-
+              case "thought_done": break;
               case "tool_call":
-                dispatch({
-                  type: "REAL_TOOL_START",
-                  tool: toToolType(event.tool as string),
-                  input: event.input as string,
-                });
+                dispatch({ type: "REAL_TOOL_START", tool: toToolType(event.tool as string), input: event.input as string });
                 break;
-
               case "tool_chunk":
                 dispatch({ type: "APPEND_TOOL_OUTPUT", chunk: event.content as string });
                 break;
-
-              case "tool_done":
-                break;
-
+              case "tool_done": break;
               case "step_done":
                 dispatch({ type: "REAL_STEP_DONE" });
                 break;
-
               case "done":
-                dispatch({
-                  type: "REAL_DONE",
-                  answer: event.answer as string,
-                  summary: (event.summary as string[]) ?? [],
-                });
+                dispatch({ type: "REAL_DONE", answer: event.answer as string, summary: (event.summary as string[]) ?? [] });
                 setLocation("/results");
                 break;
-
               case "error":
                 dispatch({ type: "REAL_ERROR", message: event.message as string });
                 break;
@@ -165,7 +201,7 @@ export default function Demo() {
 
   // ─── Scripted tick loop ──────────────────────────────────────────────────
   useEffect(() => {
-    if (state.status !== "running" || !state.scenario || state.isRealAgent) return;
+    if (state.status !== "running" || !state.scenario || state.isRealAgent || state.isGenerative) return;
 
     let intervalId: number;
     let lastTick = performance.now();
@@ -189,22 +225,17 @@ export default function Demo() {
       const thoughtLength = state.currentThought.length;
 
       if (state.visibleThoughtChars < thoughtLength) {
-        const thoughtDurationMs =
-          currentStep.durationMs > 0
-            ? currentStep.durationMs
-            : (thoughtLength / THOUGHT_CHARS_PER_SEC) * 1000;
+        const thoughtDurationMs = currentStep.durationMs > 0
+          ? currentStep.durationMs
+          : (thoughtLength / THOUGHT_CHARS_PER_SEC) * 1000;
         const dynamicCps = thoughtLength / (thoughtDurationMs / 1000);
         const charsToAdd = Math.max(1, Math.floor((dynamicCps * scaledDt) / 1000));
         dispatch({ type: "STREAM_THOUGHT", chars: state.visibleThoughtChars + charsToAdd });
-      } else if (
-        currentStep.toolCall &&
-        state.streamingToolOutputChars < currentStep.toolCall.output.length
-      ) {
+      } else if (currentStep.toolCall && state.streamingToolOutputChars < currentStep.toolCall.output.length) {
         const toolOutput = currentStep.toolCall.output;
-        const toolDurationMs =
-          currentStep.toolCall.durationMs > 0
-            ? currentStep.toolCall.durationMs
-            : (toolOutput.length / TOOL_OUTPUT_CHARS_PER_SEC) * 1000;
+        const toolDurationMs = currentStep.toolCall.durationMs > 0
+          ? currentStep.toolCall.durationMs
+          : (toolOutput.length / TOOL_OUTPUT_CHARS_PER_SEC) * 1000;
         const dynamicCps = toolOutput.length / (toolDurationMs / 1000);
         const charsToAdd = Math.max(1, Math.floor((dynamicCps * scaledDt) / 1000));
         dispatch({ type: "STREAM_TOOL_OUTPUT", chars: state.streamingToolOutputChars + charsToAdd });
@@ -212,19 +243,13 @@ export default function Demo() {
         clearInterval(intervalId);
         dispatch({ type: "COMPLETE_STEP", step: currentStep });
 
-        const isLastStep =
-          state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1;
+        const isLastStep = state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1;
         const pauseMs = INTER_STEP_PAUSE_MS / speedRef.current;
 
         if (isLastStep) {
-          setTimeout(() => {
-            dispatch({ type: "FINISH" });
-            setLocation("/results");
-          }, pauseMs);
+          setTimeout(() => { dispatch({ type: "FINISH" }); setLocation("/results"); }, pauseMs);
         } else {
-          setTimeout(() => {
-            dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 });
-          }, pauseMs);
+          setTimeout(() => { dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 }); }, pauseMs);
         }
       }
     };
@@ -232,64 +257,164 @@ export default function Demo() {
     intervalId = window.setInterval(tick, 50);
     return () => clearInterval(intervalId);
   }, [
-    state.status,
-    state.scenario,
-    state.isRealAgent,
-    state.currentStepIndex,
-    state.visibleThoughtChars,
-    state.streamingToolOutputChars,
-    state.currentThought,
-    dispatch,
-    setLocation,
+    state.status, state.scenario, state.isRealAgent, state.isGenerative,
+    state.currentStepIndex, state.visibleThoughtChars, state.streamingToolOutputChars,
+    state.currentThought, dispatch, setLocation,
   ]);
 
   if (!state.scenario) return null;
 
-  // Derive active tool call from mode
-  const scriptedStep = state.isRealAgent ? null : state.scenario.steps[state.currentStepIndex];
+  const scriptedStep = (state.isRealAgent || state.isGenerative) ? null : state.scenario.steps[state.currentStepIndex];
   const activeToolCall = state.isRealAgent
-    ? state.liveToolCall
-      ? { ...state.liveToolCall, output: state.streamingToolOutput }
-      : null
+    ? state.liveToolCall ? { ...state.liveToolCall, output: state.streamingToolOutput } : null
     : scriptedStep?.toolCall ?? null;
 
   const formatTime = (ms: number) => (ms / 1000).toFixed(1) + "s";
   const isPaused = state.status === "paused";
   const isRunning = state.status === "running";
   const isError = state.status === "error";
+  const isScripted = !state.isRealAgent && !state.isGenerative;
 
-  const timelineSteps = state.isRealAgent
-    ? state.completedSteps
-    : state.scenario.steps;
+  // ─── Generative-only simplified view ────────────────────────────────────
+  if (state.isGenerative) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col h-screen overflow-hidden">
+        {/* Header */}
+        <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card z-10 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`flex items-center gap-2 font-mono text-sm border px-3 py-1 rounded-md shrink-0 ${
+              isError ? "text-red-400 border-red-400/30 bg-red-400/5" : "text-amber-400 border-amber-400/30 bg-amber-400/5"
+            }`}>
+              {isError ? <AlertCircle className="w-4 h-4" /> : <MessageSquare className="w-4 h-4 animate-pulse" />}
+              <span className="hidden sm:inline">{isError ? "Error" : "Generating"}</span>
+            </div>
+            <h1 className="font-medium truncate hidden md:block text-sm">{state.customGoal}</h1>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="font-mono text-sm text-muted-foreground tabular-nums" data-testid="text-timer">
+              {formatTime(state.elapsedMs)}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => { abortRef.current?.abort(); dispatch({ type: "RESET" }); setLocation("/"); }} className="px-3 text-muted-foreground">
+              ← Home
+            </Button>
+          </div>
+        </header>
+
+        {isError && (
+          <div className="bg-red-950/50 border-b border-red-500/30 px-6 py-3 text-red-400 text-sm flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />{state.errorMessage ?? "An error occurred"}
+            <Button size="sm" variant="outline" className="ml-auto text-red-400 border-red-400/30" onClick={() => { dispatch({ type: "RESET" }); setLocation("/"); }}>Go back</Button>
+          </div>
+        )}
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main content */}
+          <main className="flex-1 p-6 lg:p-12 overflow-y-auto flex flex-col">
+            <div className="max-w-3xl mx-auto w-full flex-1">
+              {/* Mode label */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+                <div className="inline-flex flex-col gap-1">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mode</span>
+                  <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 rounded-md bg-amber-500/20 text-amber-400 font-mono font-bold border border-amber-500/30 flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Generating
+                    </div>
+                    <span className="text-muted-foreground text-sm">
+                      Single prompt → direct response, no planning or tools
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Response box */}
+              <motion.div layout className="relative p-6 rounded-xl border border-amber-500/30 bg-card shadow-[0_0_30px_-10px_rgba(245,158,11,0.15)] mb-6">
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-amber-500/5 to-transparent pointer-events-none rounded-xl" />
+                <div className="absolute -inset-[1px] rounded-xl border border-amber-500/40 pointer-events-none animate-pulse" />
+
+                <div className="font-mono text-lg md:text-xl leading-relaxed whitespace-pre-wrap text-foreground/90">
+                  {state.currentThought.substring(0, state.visibleThoughtChars)}
+                  {state.currentThought.length > 0 && (
+                    <span className="inline-block w-2 h-5 ml-1 bg-amber-400 animate-pulse align-middle" />
+                  )}
+                  {state.currentThought.length === 0 && isRunning && (
+                    <span className="text-muted-foreground animate-pulse">Generating response…</span>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* "No steps" callout */}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                className="rounded-xl border border-dashed border-border bg-muted/10 p-4 flex items-start gap-3"
+              >
+                <XCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium text-sm mb-1 text-muted-foreground">No planning steps</div>
+                  <div className="text-xs text-muted-foreground/70 leading-relaxed">
+                    Generative AI jumps straight to an answer. No planning, no tool calls, no reflection.
+                    Switch to <span className="text-primary font-medium">Real Agent</span> mode to see the difference — the same goal becomes a multi-step reasoning process.
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </main>
+
+          {/* Right panel — contrast */}
+          <aside className="w-72 border-l border-border bg-card/50 overflow-y-auto hidden lg:block shrink-0">
+            <div className="p-6 sticky top-0 bg-card/95 backdrop-blur z-10 border-b border-border">
+              <h3 className="font-semibold flex items-center gap-2 text-sm">
+                <Bot className="w-4 h-4 text-primary" />
+                What an Agent would do
+              </h3>
+            </div>
+            <div className="p-6 space-y-4 relative">
+              <div className="absolute left-[39px] top-6 bottom-6 w-px bg-border/50" />
+              {[
+                { phase: "Plan", desc: "Break goal into sub-tasks" },
+                { phase: "Think", desc: "Reason about what's needed" },
+                { phase: "Act", desc: "Call tools for real data" },
+                { phase: "Observe", desc: "Process tool results" },
+                { phase: "Reflect", desc: "Decide what to do next" },
+                { phase: "Done", desc: "Synthesise final answer" },
+              ].map((s, i) => (
+                <motion.div key={s.phase} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 0.4, x: 0 }} transition={{ delay: i * 0.1 }} className="relative flex gap-4 z-10">
+                  <div className="w-8 h-8 rounded-full border-2 border-dashed border-primary/30 text-primary/30 flex items-center justify-center shrink-0 bg-card">
+                    <span className="text-xs font-mono">{i + 1}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-0.5 text-primary/40">{s.phase}</div>
+                    <div className="text-xs text-muted-foreground/50">{s.desc}</div>
+                  </div>
+                </motion.div>
+              ))}
+              <p className="text-xs text-muted-foreground/50 mt-4 text-center italic">skipped in generative mode</p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Agentic (scripted + real agent) view ───────────────────────────────
+  const timelineSteps = state.isRealAgent ? state.completedSteps : state.scenario.steps;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col h-screen overflow-hidden">
       {/* Header */}
       <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card z-10 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Status pill */}
-          <div
-            className={`flex items-center gap-2 font-mono text-sm border px-3 py-1 rounded-md transition-colors shrink-0 ${
-              isError
-                ? "text-red-400 border-red-400/30 bg-red-400/5"
-                : isPaused
-                ? "text-amber-400 border-amber-400/30 bg-amber-400/5"
-                : state.isRealAgent
-                ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5"
-                : "text-primary border-primary/20 bg-primary/5"
-            }`}
-          >
-            {isError ? (
-              <AlertCircle className="w-4 h-4" />
-            ) : state.isRealAgent ? (
-              <Bot className="w-4 h-4 animate-pulse" />
-            ) : isPaused ? (
-              <Pause className="w-4 h-4" />
-            ) : (
-              <Activity className="w-4 h-4 animate-pulse" />
-            )}
+          <div className={`flex items-center gap-2 font-mono text-sm border px-3 py-1 rounded-md transition-colors shrink-0 ${
+            isError ? "text-red-400 border-red-400/30 bg-red-400/5"
+            : isPaused ? "text-amber-400 border-amber-400/30 bg-amber-400/5"
+            : state.isRealAgent ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5"
+            : "text-primary border-primary/20 bg-primary/5"
+          }`}>
+            {isError ? <AlertCircle className="w-4 h-4" />
+              : state.isRealAgent ? <Bot className="w-4 h-4 animate-pulse" />
+              : isPaused ? <Pause className="w-4 h-4" />
+              : <Activity className="w-4 h-4 animate-pulse" />}
             <span className="hidden sm:inline">
-              {isError ? "Error" : state.isRealAgent ? "Real AI" : isPaused ? "Paused" : "Agent Running"}
+              {isError ? "Error" : state.isRealAgent ? "Real Agent" : isPaused ? "Paused" : "Agent Running"}
             </span>
           </div>
           <h1 className="font-medium truncate hidden md:block text-sm">
@@ -298,28 +423,18 @@ export default function Demo() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Elapsed timer */}
           <div className="font-mono text-sm text-muted-foreground tabular-nums" data-testid="text-timer">
             {formatTime(state.elapsedMs)}
           </div>
 
           {/* Speed controls — scripted mode only */}
-          {!state.isRealAgent && (
-            <div
-              className="flex items-center gap-0.5 bg-muted/40 border border-border rounded-md p-0.5"
-              data-testid="speed-controls"
-            >
+          {isScripted && (
+            <div className="flex items-center gap-0.5 bg-muted/40 border border-border rounded-md p-0.5" data-testid="speed-controls">
               {SPEED_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSpeed(s)}
-                  data-testid={`button-speed-${s}`}
+                <button key={s} onClick={() => setSpeed(s)} data-testid={`button-speed-${s}`}
                   className={`px-2 py-1 rounded text-xs font-mono font-semibold transition-colors ${
-                    speed === s
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
+                    speed === s ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}>
                   {s}×
                 </button>
               ))}
@@ -327,50 +442,21 @@ export default function Demo() {
           )}
 
           {/* Pause / Resume — scripted only */}
-          {!state.isRealAgent && (isRunning || isPaused) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => dispatch({ type: isPaused ? "RESUME" : "PAUSE" })}
-              data-testid="button-pause-resume"
-              className="gap-1.5 px-3"
-            >
+          {isScripted && (isRunning || isPaused) && (
+            <Button variant="outline" size="sm" onClick={() => dispatch({ type: isPaused ? "RESUME" : "PAUSE" })} data-testid="button-pause-resume" className="gap-1.5 px-3">
               {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
               {isPaused ? "Resume" : "Pause"}
             </Button>
           )}
 
-          {/* Restart */}
-          {!state.isRealAgent && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSpeed(1);
-                dispatch({
-                  type: "START",
-                  scenario: state.scenario!,
-                  customGoal: state.customGoal ?? undefined,
-                });
-              }}
-              data-testid="button-restart"
-              className="px-3"
-            >
+          {/* Restart — scripted only */}
+          {isScripted && (
+            <Button variant="outline" size="sm" onClick={() => { setSpeed(1); dispatch({ type: "START", scenario: state.scenario!, customGoal: state.customGoal ?? undefined }); }} data-testid="button-restart" className="px-3">
               <RotateCcw className="w-4 h-4" />
             </Button>
           )}
 
-          {/* Back to home */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              abortRef.current?.abort();
-              dispatch({ type: "RESET" });
-              setLocation("/");
-            }}
-            className="px-3 text-muted-foreground"
-          >
+          <Button variant="ghost" size="sm" onClick={() => { abortRef.current?.abort(); dispatch({ type: "RESET" }); setLocation("/"); }} className="px-3 text-muted-foreground">
             ← Home
           </Button>
         </div>
@@ -401,9 +487,7 @@ export default function Demo() {
               >
                 {state.currentPhase && (
                   <div className="inline-flex flex-col gap-1">
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                      Current Phase
-                    </span>
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Current Phase</span>
                     <div className="flex items-center gap-3">
                       <div className="px-3 py-1 rounded-md bg-primary/20 text-primary font-mono font-bold border border-primary/30">
                         {PHASE_LABELS[state.currentPhase]}
@@ -418,27 +502,16 @@ export default function Demo() {
             </AnimatePresence>
 
             {/* Thought box */}
-            <motion.div
-              layout
-              className={`relative p-6 rounded-xl border bg-card shadow-[0_0_30px_-10px_rgba(var(--primary),0.1)] mb-6 ${
-                isPaused ? "border-amber-400/30" : "border-primary/30"
-              }`}
-            >
+            <motion.div layout className={`relative p-6 rounded-xl border bg-card shadow-[0_0_30px_-10px_rgba(var(--primary),0.1)] mb-6 ${isPaused ? "border-amber-400/30" : "border-primary/30"}`}>
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none rounded-xl" />
-              <div
-                className={`absolute -inset-[1px] rounded-xl border pointer-events-none transition-colors ${
-                  isPaused ? "border-amber-400/30" : "border-primary/50 animate-pulse"
-                }`}
-              />
+              <div className={`absolute -inset-[1px] rounded-xl border pointer-events-none transition-colors ${isPaused ? "border-amber-400/30" : "border-primary/50 animate-pulse"}`} />
 
               <div className="font-mono text-lg md:text-xl leading-relaxed whitespace-pre-wrap text-foreground/90">
                 {state.currentThought.substring(0, state.visibleThoughtChars)}
                 {!isPaused && state.currentThought.length > 0 && (
                   <span className="inline-block w-2 h-5 ml-1 bg-primary animate-pulse align-middle" />
                 )}
-                {isPaused && (
-                  <span className="inline-block w-2 h-5 ml-1 bg-amber-400/60 align-middle" />
-                )}
+                {isPaused && <span className="inline-block w-2 h-5 ml-1 bg-amber-400/60 align-middle" />}
                 {state.currentThought.length === 0 && isRunning && (
                   <span className="text-muted-foreground animate-pulse">
                     {state.isRealAgent ? "Waiting for AI response…" : "Thinking…"}
@@ -450,45 +523,23 @@ export default function Demo() {
             {/* Tool Call Card */}
             <AnimatePresence>
               {activeToolCall && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, y: -10 }}
-                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                  className="rounded-xl border border-border bg-black/40 overflow-hidden"
-                >
-                  <div
-                    className={`px-4 py-2 border-b border-border flex items-center gap-2 ${
-                      toolConfig[activeToolCall.tool].bg
-                    }`}
-                  >
-                    {(() => {
-                      const ToolIcon = toolConfig[activeToolCall.tool].icon;
-                      return (
-                        <ToolIcon className={`w-4 h-4 ${toolConfig[activeToolCall.tool].color}`} />
-                      );
-                    })()}
-                    <span className="font-mono text-sm font-semibold tracking-tight">
-                      TOOL: {activeToolCall.tool}
-                    </span>
+                <motion.div initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} className="rounded-xl border border-border bg-black/40 overflow-hidden">
+                  <div className={`px-4 py-2 border-b border-border flex items-center gap-2 ${toolConfig[activeToolCall.tool].bg}`}>
+                    {(() => { const TI = toolConfig[activeToolCall.tool].icon; return <TI className={`w-4 h-4 ${toolConfig[activeToolCall.tool].color}`} />; })()}
+                    <span className="font-mono text-sm font-semibold tracking-tight">TOOL: {activeToolCall.tool}</span>
                   </div>
                   <div className="p-4 space-y-4">
                     <div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-mono">
-                        Input
-                      </div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-mono">Input</div>
                       <div className="font-mono text-sm bg-card p-3 rounded-md border border-border text-foreground/80 break-all">
                         {activeToolCall.input}
                       </div>
                     </div>
-
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-mono flex items-center gap-2">
                         Output
-                        {!isPaused && state.streamingToolOutputChars < state.streamingToolOutput.length && (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        )}
-                        {state.isRealAgent && state.streamingToolOutput.length === 0 && (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        )}
+                        {!isPaused && state.streamingToolOutputChars < state.streamingToolOutput.length && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {state.isRealAgent && state.streamingToolOutput.length === 0 && <Loader2 className="w-3 h-3 animate-spin" />}
                       </div>
                       <div className="font-mono text-sm text-muted-foreground break-words border-l-2 border-border pl-4 whitespace-pre-wrap">
                         {state.streamingToolOutput.substring(0, state.streamingToolOutputChars)}
@@ -514,42 +565,25 @@ export default function Demo() {
             <div className="space-y-6">
               {state.isRealAgent ? (
                 <>
-                  {/* Real agent: show completed steps */}
                   {state.completedSteps.map((step, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="relative flex gap-4 z-10"
-                    >
+                    <motion.div key={idx} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="relative flex gap-4 z-10">
                       <div className="w-8 h-8 rounded-full border-2 border-primary text-primary flex items-center justify-center shrink-0 bg-card">
                         <CheckCircle className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0 pt-1">
-                        <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 text-muted-foreground">
-                          {PHASE_LABELS[step.phase]}
-                        </div>
+                        <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 text-muted-foreground">{PHASE_LABELS[step.phase]}</div>
                         <div className="text-sm text-muted-foreground truncate">{step.thought}</div>
                       </div>
                     </motion.div>
                   ))}
-                  {/* Current live step */}
                   {state.currentPhase && isRunning && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="relative flex gap-4 z-10"
-                    >
+                    <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="relative flex gap-4 z-10">
                       <div className="w-8 h-8 rounded-full border-2 border-dashed border-emerald-400 text-emerald-400 bg-emerald-400/10 flex items-center justify-center shrink-0">
                         <Bot className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0 pt-1">
-                        <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 text-emerald-400">
-                          {PHASE_LABELS[state.currentPhase]}
-                        </div>
-                        <div className="text-sm text-foreground truncate">
-                          {state.currentThought || "…"}
-                        </div>
+                        <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 text-emerald-400">{PHASE_LABELS[state.currentPhase]}</div>
+                        <div className="text-sm text-foreground truncate">{state.currentThought || "…"}</div>
                       </div>
                     </motion.div>
                   )}
@@ -558,55 +592,29 @@ export default function Demo() {
                   )}
                 </>
               ) : (
-                <>
-                  {/* Scripted: show all scenario steps */}
-                  {timelineSteps.map((step, idx) => {
-                    const isCompleted = state.currentStepIndex > idx;
-                    const isCurrent = state.currentStepIndex === idx;
-                    const isUpcoming = state.currentStepIndex < idx;
-                    return (
-                      <motion.div
-                        key={idx}
-                        initial={false}
-                        animate={{ opacity: isUpcoming ? 0.3 : 1, scale: isCurrent ? 1.02 : 1 }}
-                        className="relative flex gap-4 z-10"
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-card ${
-                            isCompleted
-                              ? "border-primary text-primary"
-                              : isCurrent
-                              ? "border-primary border-dashed text-primary bg-primary/10"
-                              : "border-muted text-muted-foreground"
-                          }`}
-                        >
-                          {isCompleted ? (
-                            <CheckCircle className="w-4 h-4" />
-                          ) : (
-                            <span className="text-xs font-mono">{idx + 1}</span>
-                          )}
+                timelineSteps.map((step, idx) => {
+                  const isCompleted = state.currentStepIndex > idx;
+                  const isCurrent = state.currentStepIndex === idx;
+                  const isUpcoming = state.currentStepIndex < idx;
+                  return (
+                    <motion.div key={idx} initial={false} animate={{ opacity: isUpcoming ? 0.3 : 1, scale: isCurrent ? 1.02 : 1 }} className="relative flex gap-4 z-10">
+                      <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 bg-card ${
+                        isCompleted ? "border-primary text-primary"
+                        : isCurrent ? "border-primary border-dashed text-primary bg-primary/10"
+                        : "border-muted text-muted-foreground"
+                      }`}>
+                        {isCompleted ? <CheckCircle className="w-4 h-4" /> : <span className="text-xs font-mono">{idx + 1}</span>}
+                      </div>
+                      <div className="flex-1 min-w-0 pt-1">
+                        <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 flex items-center gap-2">
+                          <span className={isCurrent ? "text-primary" : "text-muted-foreground"}>{PHASE_LABELS[step.phase]}</span>
+                          {step.toolCall && <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">{step.toolCall.tool}</span>}
                         </div>
-                        <div className="flex-1 min-w-0 pt-1">
-                          <div className="text-xs font-mono uppercase tracking-wider font-semibold mb-1 flex items-center gap-2">
-                            <span className={isCurrent ? "text-primary" : "text-muted-foreground"}>
-                              {PHASE_LABELS[step.phase]}
-                            </span>
-                            {step.toolCall && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
-                                {step.toolCall.tool}
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            className={`text-sm truncate ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}
-                          >
-                            {step.thought}
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </>
+                        <div className={`text-sm truncate ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}>{step.thought}</div>
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
             </div>
           </div>

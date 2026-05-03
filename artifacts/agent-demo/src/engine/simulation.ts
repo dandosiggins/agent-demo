@@ -29,6 +29,10 @@ export interface SimulationState {
   realFinalAnswer: string;
   realStepSummary: string[];
   errorMessage: string | null;
+
+  // Generative mode
+  isGenerative: boolean;
+  generativeFinalAnswer: string;
 }
 
 export type SimulationAction =
@@ -49,6 +53,10 @@ export type SimulationAction =
   | { type: "REAL_STEP_DONE" }
   | { type: "REAL_DONE"; answer: string; summary: string[] }
   | { type: "REAL_ERROR"; message: string }
+  // Generative
+  | { type: "GENERATIVE_START"; goal: string }
+  | { type: "GENERATIVE_DONE"; answer: string }
+  | { type: "GENERATIVE_ERROR"; message: string }
   // Shared
   | { type: "FINISH" }
   | { type: "RESET" }
@@ -81,6 +89,8 @@ export const initialSimulationState: SimulationState = {
   realFinalAnswer: "",
   realStepSummary: [],
   errorMessage: null,
+  isGenerative: false,
+  generativeFinalAnswer: "",
 };
 
 export function simulationReducer(
@@ -220,6 +230,29 @@ export function simulationReducer(
       };
 
     case "REAL_ERROR":
+      return { ...state, status: "error", errorMessage: action.message };
+
+    // ─── Generative ─────────────────────────────────────────────────────────
+    case "GENERATIVE_START":
+      return {
+        ...initialSimulationState,
+        isGenerative: true,
+        scenario: { id: "generative", label: "Generative AI", goal: action.goal, description: "", steps: [], finalAnswer: "", stepSummary: [] },
+        customGoal: action.goal,
+        status: "running",
+        currentPhase: "plan" as const,
+        currentThought: "",
+        visibleThoughtChars: 0,
+      };
+
+    case "GENERATIVE_DONE":
+      return {
+        ...state,
+        status: "done",
+        generativeFinalAnswer: action.answer,
+      };
+
+    case "GENERATIVE_ERROR":
       return { ...state, status: "error", errorMessage: action.message };
 
     // ─── Shared ─────────────────────────────────────────────────────────────
