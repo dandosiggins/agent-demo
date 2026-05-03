@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "XWRu--LkKNEtu4DiItbCI"
+uri = "file://docs/agentic-ai-demo-breakdown.md"
+type = "text"
+title = "Agentic AI Demo — Full Breakdown"
