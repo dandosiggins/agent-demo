@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { SCENARIOS, Scenario, PHASE_LABELS, Phase } from "@/data/scenarios";
@@ -61,11 +61,20 @@ export default function Home() {
   const { dispatch } = useSimulation();
   const [customGoal, setCustomGoal] = useState("");
   const [mode, setMode] = useState<AppMode>("scripted");
+  // Mirror mode in a ref so click handlers always see the latest value,
+  // even if React hasn't committed the re-render yet (avoids stale closure).
+  const modeRef = useRef<AppMode>("scripted");
+
+  const changeMode = (newMode: AppMode) => {
+    modeRef.current = newMode;
+    setMode(newMode);
+  };
 
   const handleSelectScenario = (scenario: Scenario) => {
-    if (mode === "real-agent") {
+    const m = modeRef.current;
+    if (m === "real-agent") {
       dispatch({ type: "REAL_START", goal: scenario.goal });
-    } else if (mode === "generative") {
+    } else if (m === "generative") {
       dispatch({ type: "GENERATIVE_START", goal: scenario.goal });
     } else {
       dispatch({ type: "START", scenario });
@@ -77,13 +86,14 @@ export default function Home() {
     e.preventDefault();
     if (!customGoal.trim()) return;
     const goal = customGoal.trim();
+    const m = modeRef.current;
 
-    if (mode === "real-agent") {
+    if (m === "real-agent") {
       dispatch({ type: "REAL_START", goal });
       setLocation("/demo");
       return;
     }
-    if (mode === "generative") {
+    if (m === "generative") {
       dispatch({ type: "GENERATIVE_START", goal });
       setLocation("/demo");
       return;
@@ -138,7 +148,7 @@ export default function Home() {
           return (
             <button
               key={key}
-              onClick={() => setMode(key)}
+              onClick={() => changeMode(key)}
               data-testid={`button-mode-${key}`}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 isActive ? cfg.activeCls : "text-muted-foreground hover:text-foreground"
