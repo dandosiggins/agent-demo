@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import OpenAI from "openai";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 const router = Router();
 
@@ -120,7 +121,7 @@ Generate realistic file content (2-3 paragraphs with specific details, numbers, 
   const prompt = prompts[name] ?? `Execute tool ${name} with args: ${JSON.stringify(args)}. Return realistic output.`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
+    model: "gpt-4.1-mini",
     messages: [{ role: "user", content: prompt }],
     max_completion_tokens: 400,
   });
@@ -164,7 +165,7 @@ router.post("/agent/run", async (req, res) => {
       send({ type: "phase", phase: thinkingPhase, stepIndex });
 
       const stream = await openai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4.1",
         messages,
         tools: TOOLS as any,
         tool_choice: "auto",
