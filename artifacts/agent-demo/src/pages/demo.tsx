@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 const toolConfig: Record<ToolType, { icon: React.ElementType; color: string; bg: string }> = {
   web_search:       { icon: Globe,      color: "text-blue-400",   bg: "bg-blue-400/10"   },
   memory:           { icon: Database,   color: "text-violet-400", bg: "bg-violet-400/10" },
@@ -108,7 +110,7 @@ export default function Demo() {
     let buffer = "";
     (async () => {
       try {
-        const response = await fetch("/api/generate/run", {
+        const response = await fetch(`${API_BASE}/api/generate/run`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ goal: state.customGoal }), signal: controller.signal,
         });
@@ -144,7 +146,7 @@ export default function Demo() {
     let buffer = "";
     (async () => {
       try {
-        const response = await fetch("/api/agent/run", {
+        const response = await fetch(`${API_BASE}/api/agent/run`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ goal: state.customGoal }), signal: controller.signal,
         });
