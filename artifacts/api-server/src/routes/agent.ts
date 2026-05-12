@@ -157,7 +157,7 @@ router.post("/agent/run", async (req, res) => {
   let stepIndex = 0;
   let justUsedTool = false;
   const MAX_ITERATIONS = 6;
-  const completedThoughts: string[] = [];
+  const stepSummaries: string[] = [];
 
   try {
     for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
@@ -196,7 +196,13 @@ router.post("/agent/run", async (req, res) => {
       }
 
       send({ type: "thought_done" });
-      completedThoughts.push(fullContent);
+
+      // Capture non-empty reasoning as a summary step
+      const trimmed = fullContent.trim();
+      if (trimmed) {
+        const first = trimmed.split(".")[0].trim();
+        stepSummaries.push(first.length > 80 ? first.slice(0, 80) + "…" : first);
+      }
 
       const toolCalls = Object.values(toolCallsMap);
 
@@ -217,12 +223,8 @@ router.post("/agent/run", async (req, res) => {
       stepIndex++;
 
       if (toolCalls.length === 0) {
-        // No tool calls — this is the final answer
-        const summary = completedThoughts.slice(0, -1).map((t, i) => {
-          const first = t.split(".")[0];
-          return first.length > 80 ? first.slice(0, 80) + "…" : first;
-        });
-        send({ type: "done", answer: fullContent, summary });
+        // No tool calls — this is the final answer; exclude its thought from step summaries
+        send({ type: "done", answer: fullContent, summary: stepSummaries });
         break;
       }
 
@@ -238,6 +240,10 @@ router.post("/agent/run", async (req, res) => {
         // Determine the primary input string for display
         const primaryInput =
           args.query ?? args.expression ?? args.code ?? args.filename ?? tc.args;
+
+        // Record the tool call as a summary step
+        const label = primaryInput ? `${tc.name}: "${primaryInput.slice(0, 60)}"` : tc.name;
+        stepSummaries.push(label);
 
         send({ type: "phase", phase: "act", stepIndex });
         send({ type: "tool_call", tool: tc.name, input: primaryInput });

@@ -208,8 +208,8 @@ export default function Results() {
               </Card>
             )}
 
-            {/* Scripted step summary fallback */}
-            {!state.isGenerative && !state.isRealAgent && state.completedSteps.length > 0 && stepSummary.length === 0 && (
+            {/* Step summary fallback — scripted and real agent */}
+            {!state.isGenerative && state.completedSteps.length > 0 && stepSummary.length === 0 && (
               <Card className="bg-card">
                 <CardContent className="p-6">
                   <h3 className="font-semibold mb-4 border-b border-border pb-4">Steps completed</h3>
