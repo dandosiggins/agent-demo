@@ -356,6 +356,89 @@ export const SCENARIOS: Scenario[] = [
       "Wrote concise one-page pitch leading with the problem",
     ],
   },
+  {
+    id: "canadian-ai-health",
+    label: "Canadian AI & Health Tech Briefing",
+    goal: "Research the latest AI developments in Canada and Alberta's health technology sector and produce a morning briefing",
+    description: "Agentic news research across Canadian AI policy, Alberta health tech, and Canadian health startups",
+    steps: [
+      {
+        phase: "plan",
+        thought:
+          "I'll structure this briefing around three pillars: (1) federal Canadian AI strategy and policy, (2) Alberta-specific AI and health tech developments — including AHS, Amii, and Alberta Precision Laboratories — and (3) notable Canadian health tech startups and funding rounds. I'll run targeted searches for each pillar, then synthesise into a briefing section.",
+        durationMs: 1500,
+      },
+      {
+        phase: "think",
+        thought:
+          "Canada is a global AI leader anchored by the Pan-Canadian AI Strategy and institutes like Vector, Mila, and Amii. Alberta is particularly active: the province funds Amii directly and AHS is mid-rollout of Connect Care (Epic), generating rich clinical data for AI applications. I should check for recent federal policy moves — Bill C-27 / AIDA is the big one — and look for new Alberta health-AI partnerships.",
+        durationMs: 1800,
+      },
+      {
+        phase: "act",
+        thought: "Searching for recent Canadian federal AI policy and strategy news",
+        toolCall: {
+          tool: "web_search",
+          input: "Canada federal AI strategy policy AIDA Bill C-27 2024 2025",
+          output:
+            "Results: (1) Bill C-27 / Artificial Intelligence and Data Act (AIDA) passed second reading; Senate committee hearings ongoing as of early 2025 — focus on high-impact AI system obligations and mandatory incident reporting. (2) ISED launched a $2.4B AI compute cluster investment to expand Canadian AI infrastructure. (3) CIFAR renewed Pan-Canadian AI Strategy funding through 2030, targeting AI adoption in healthcare and climate. (4) Canada signed the OECD AI Principles update and committed to international AI safety cooperation. (5) Federal government launched AI in Public Services pilot with CRA and Veterans Affairs.",
+          durationMs: 1300,
+        },
+        durationMs: 1300,
+      },
+      {
+        phase: "observe",
+        thought:
+          "Key federal signal: AIDA is advancing through Senate — compliance timelines will matter for health tech companies. The $2.4B compute investment is significant for Canadian AI researchers. CIFAR's renewed mandate reinforces healthcare AI as a national priority. I now need Alberta-specific developments.",
+        durationMs: 1600,
+      },
+      {
+        phase: "act",
+        thought: "Searching for Alberta AI and health technology developments",
+        toolCall: {
+          tool: "web_search",
+          input: "Alberta health AI AHS Connect Care Amii Alberta Precision Laboratories 2024 2025",
+          output:
+            "Results: (1) Alberta Health Services completed province-wide Connect Care (Epic) rollout — now one of the largest unified EHR deployments in North America, covering 100,000+ care team members. (2) Amii (Alberta Machine Intelligence Institute) launched a Health AI Accelerator cohort with 8 Alberta companies, providing technical mentorship and AHS data access agreements. (3) Alberta Precision Laboratories partnered with a University of Alberta team to deploy AI-assisted pathology for cervical cancer screening, reducing read time by 40%. (4) AHS Digital Health announced a pilot of AI-generated clinical documentation (ambient scribing) across 3 Edmonton emergency departments. (5) Government of Alberta committed $50M to the AI growth corridor between Edmonton and Calgary.",
+          durationMs: 1200,
+        },
+        durationMs: 1200,
+      },
+      {
+        phase: "act",
+        thought: "Searching for Canadian health tech startups and recent funding rounds",
+        toolCall: {
+          tool: "web_search",
+          input: "Canadian health tech AI startup funding 2024 2025 Well Health League Maple",
+          output:
+            "Results: (1) Well Health Technologies (TSX: WELL) acquired 2 Ontario clinic networks, now operating 170+ clinics; rolled out AI-assisted charting to 3,000 physicians. (2) Maple (virtual care) expanded to employer benefits partnerships, reporting 2M+ patient visits. (3) League (health OS platform) raised a $95M Series C led by OMERS Ventures; expanding into US enterprise market. (4) Greenspace Mental Health secured $18M to scale its digital mental health platform across 6 provincial health authorities. (5) Snapclarity (Calgary-based mental health AI triage) acquired by a US digital health group. (6) BioSymetrics (Toronto) raised $12M for its ML drug-discovery platform targeting rare diseases.",
+          durationMs: 1400,
+        },
+        durationMs: 1400,
+      },
+      {
+        phase: "reflect",
+        thought:
+          "Strong picture across all three pillars. Federal: AIDA advancing (compliance signal), major compute investment. Alberta: Connect Care fully live (massive data asset), Amii health cohort active, AI pathology showing measurable results, ambient scribing pilots underway. Startups: Well Health and Maple scaling, League raising big, mental health AI getting traction. I have enough for a complete, current briefing section.",
+        durationMs: 1500,
+      },
+      {
+        phase: "done",
+        thought: "Compiling the Canadian AI & Health Tech briefing section.",
+        durationMs: 800,
+      },
+    ],
+    finalAnswer:
+      "**Canadian AI & Health Technology — Morning Briefing**\n\n---\n\n**Federal Policy Update**\nBill C-27's Artificial Intelligence and Data Act (AIDA) is advancing through Senate committee, with hearings focused on obligations for high-impact AI systems and mandatory incident reporting. Health technology companies should begin mapping their products against the proposed risk tiers. Separately, the federal government committed $2.4B to expand Canadian AI compute infrastructure — a signal that Ottawa is treating AI as strategic national infrastructure, not just research.\n\n**Alberta Spotlight**\nAlberta Health Services has completed its province-wide Connect Care (Epic) rollout, making it one of the largest unified EHR deployments in North America. This creates an exceptional data foundation for AI development. Three near-term developments to watch:\n- **AI Pathology (APL + U of A):** Ambient AI-assisted cervical cancer screening is reducing read time by 40% — a production result, not a pilot.\n- **Ambient Scribing Pilot:** AHS Digital Health is trialling AI-generated clinical documentation in 3 Edmonton emergency departments. If results hold, this could expand rapidly across the province.\n- **Amii Health AI Accelerator:** 8 Alberta companies now have structured AHS data access agreements — the bottleneck for health AI is often data, not models.\n\n**Canadian Health Tech Watch**\n- **Well Health (TSX: WELL):** AI-assisted charting now live for 3,000+ physicians across 170+ clinics.\n- **League:** $95M Series C closed; health OS platform expanding into US enterprise.\n- **Greenspace Mental Health:** $18M raised; scaling across 6 provincial health authorities.\n- **Maple:** Surpassed 2M patient visits; deepening employer benefits channel.\n\n**Key Takeaway**\nAlberta is positioned unusually well: a fully live provincial EHR, active AI research institutes, and government funding for an Edmonton–Calgary AI corridor. The combination of clinical data access (Connect Care), applied AI expertise (Amii), and lab infrastructure (APL) makes it a serious hub for health AI that produces clinical results — not just papers.",
+    stepSummary: [
+      "Planned research across federal policy, Alberta health-AI, and Canadian startups",
+      "Searched federal AI policy — AIDA advancing, $2.4B compute investment announced",
+      "Found Alberta highlights: Connect Care live, Amii Health AI Accelerator active",
+      "Identified AI pathology (40% faster reads) and ambient scribing pilots at AHS",
+      "Searched Canadian health tech funding — League $95M, Greenspace $18M",
+      "Synthesised key signal: Alberta's EHR + Amii + APL creates a differentiated health-AI hub",
+    ],
+  },
 ];
 
 export const TOOL_LABELS: Record<ToolType, string> = {

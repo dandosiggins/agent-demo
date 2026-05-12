@@ -107,6 +107,8 @@ export default function Home() {
       selected = SCENARIOS.find((s) => s.id === "fusion-research") || SCENARIOS[1];
     } else if (lower.includes("debug") || lower.includes("api") || lower.includes("error") || lower.includes("bug")) {
       selected = SCENARIOS.find((s) => s.id === "debug-api") || SCENARIOS[2];
+    } else if (lower.includes("canada") || lower.includes("canadian") || lower.includes("alberta") || lower.includes("health tech") || lower.includes("briefing")) {
+      selected = SCENARIOS.find((s) => s.id === "canadian-ai-health") || SCENARIOS[4];
     } else {
       selected = SCENARIOS.find((s) => s.id === "pitch-app") || SCENARIOS[3];
     }
