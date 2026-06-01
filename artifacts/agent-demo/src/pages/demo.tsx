@@ -31,6 +31,8 @@ import {
   Eye,
   Zap,
   Sparkles,
+  SkipForward,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -87,10 +89,14 @@ export default function Demo() {
   const { state, dispatch } = useSimulation();
   const [speed, setSpeed] = useState<SpeedOption>(1);
   const speedRef = useRef<SpeedOption>(1);
+  const [stepMode, setStepMode] = useState(false);
+  const stepModeRef = useRef(false);
+  const [waitingForNext, setWaitingForNext] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
+  useEffect(() => { stepModeRef.current = stepMode; }, [stepMode]);
 
   // Auto-scroll reasoning log
   useEffect(() => {
@@ -210,8 +216,13 @@ export default function Demo() {
         dispatch({ type: "COMPLETE_STEP", step: currentStep });
         const isLastStep = state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1;
         const pauseMs = INTER_STEP_PAUSE_MS / speedRef.current;
-        if (isLastStep) { setTimeout(() => { dispatch({ type: "FINISH" }); setLocation("/results"); }, pauseMs); }
-        else { setTimeout(() => { dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 }); }, pauseMs); }
+        if (stepModeRef.current) {
+          setWaitingForNext(true);
+        } else if (isLastStep) {
+          setTimeout(() => { dispatch({ type: "FINISH" }); setLocation("/results"); }, pauseMs);
+        } else {
+          setTimeout(() => { dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 }); }, pauseMs);
+        }
       }
     };
     intervalId = window.setInterval(tick, 50);
@@ -224,6 +235,13 @@ export default function Demo() {
   const activeToolCall = state.isRealAgent
     ? state.liveToolCall ? { ...state.liveToolCall, output: state.streamingToolOutput } : null
     : scriptedStep?.toolCall ?? null;
+
+  const handleNextStep = () => {
+    setWaitingForNext(false);
+    const isLastStep = state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1;
+    if (isLastStep) { dispatch({ type: "FINISH" }); setLocation("/results"); }
+    else { dispatch({ type: "ADVANCE_STEP", stepIndex: state.currentStepIndex + 1 }); }
+  };
 
   const formatTime = (ms: number) => (ms / 1000).toFixed(1) + "s";
   const isPaused  = state.status === "paused";
@@ -359,14 +377,27 @@ export default function Demo() {
               ))}
             </div>
           )}
-          {isScripted && (isRunning || isPaused) && (
+          {isScripted && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStepMode((m) => !m)}
+              data-testid="button-step-mode"
+              title="Step mode: pause after each step completes"
+              className={`gap-1.5 px-3 transition-colors ${stepMode ? "border-primary text-primary bg-primary/10 hover:bg-primary/20" : ""}`}
+            >
+              <SkipForward className="w-4 h-4" />
+              <span className="hidden sm:inline">Step</span>
+            </Button>
+          )}
+          {isScripted && (isRunning || isPaused) && !waitingForNext && (
             <Button variant="outline" size="sm" onClick={() => dispatch({ type: isPaused ? "RESUME" : "PAUSE" })} data-testid="button-pause-resume" className="gap-1.5 px-3">
               {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
               {isPaused ? "Resume" : "Pause"}
             </Button>
           )}
           {isScripted && (
-            <Button variant="outline" size="sm" onClick={() => { setSpeed(1); dispatch({ type: "START", scenario: state.scenario!, customGoal: state.customGoal ?? undefined }); }} data-testid="button-restart" className="px-3">
+            <Button variant="outline" size="sm" onClick={() => { setSpeed(1); setWaitingForNext(false); dispatch({ type: "START", scenario: state.scenario!, customGoal: state.customGoal ?? undefined }); }} data-testid="button-restart" className="px-3">
               <RotateCcw className="w-4 h-4" />
             </Button>
           )}
@@ -482,6 +513,31 @@ export default function Demo() {
                       </div>
                     </motion.div>
                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Step Mode: Next Step prompt */}
+            <AnimatePresence>
+              {isScripted && waitingForNext && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="rounded-xl border border-primary/40 bg-primary/5 p-5 flex items-center justify-between gap-4"
+                >
+                  <div>
+                    <div className="text-sm font-semibold flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary shrink-0" />
+                      Step {state.currentStepIndex + 1} of {state.scenario?.steps.length} complete
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1 ml-6">Take a moment to discuss, then continue when ready.</div>
+                  </div>
+                  <Button onClick={handleNextStep} className="gap-2 shrink-0">
+                    {state.currentStepIndex >= (state.scenario?.steps.length ?? 0) - 1
+                      ? <><CheckCircle className="w-4 h-4" />See Results</>
+                      : <><ChevronRight className="w-4 h-4" />Next Step</>}
+                  </Button>
                 </motion.div>
               )}
             </AnimatePresence>
